@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { auth } from "@clerk/nextjs/server";
+import { getAuthUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 
 export async function POST(req: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const user = await getAuthUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -14,9 +14,6 @@ export async function POST(req: NextRequest) {
   if (!file || !courseId) {
     return NextResponse.json({ error: "Missing file or courseId" }, { status: 400 });
   }
-
-  const user = await db.user.findUnique({ where: { clerkId: userId } });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
   const course = await db.course.findUnique({ where: { id: courseId } });
   if (!course) return NextResponse.json({ error: "Course not found" }, { status: 404 });

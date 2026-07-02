@@ -3,16 +3,11 @@ import { UserButton } from "@clerk/nextjs";
 import { BookOpen } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { auth } from "@clerk/nextjs/server";
-import { db } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth";
 
 export async function CourseNavbar() {
-  const { userId } = await auth();
-  let isTeacher = false;
-  if (userId) {
-    const user = await db.user.findUnique({ where: { clerkId: userId } });
-    isTeacher = user?.role === "instructor" || user?.role === "admin";
-  }
+  const user = await getAuthUser();
+  const isTeacher = user?.role === "instructor" || user?.role === "admin";
 
   return (
     <nav className="flex h-full items-center border-b bg-white px-6 shadow-sm">

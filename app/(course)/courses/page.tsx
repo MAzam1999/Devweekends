@@ -11,9 +11,9 @@ interface SearchParams {
 export default async function CourseCatalogPage({
   searchParams,
 }: {
-  searchParams: SearchParams;
+  searchParams: Promise<SearchParams>;
 }) {
-  const { search, categoryId } = searchParams;
+  const { search, categoryId } = await searchParams;
 
   const [courses, categories] = await Promise.all([
     db.course.findMany({

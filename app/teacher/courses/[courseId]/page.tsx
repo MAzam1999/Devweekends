@@ -11,11 +11,12 @@ import { formatPrice } from "@/lib/format";
 export default async function CourseEditPage({
   params,
 }: {
-  params: { courseId: string };
+  params: Promise<{ courseId: string }>;
 }) {
+  const { courseId } = await params;
   const user = await requireAuth();
   const course = await db.course.findUnique({
-    where: { id: params.courseId },
+    where: { id: courseId },
     include: {
       category: true,
       chapters: {

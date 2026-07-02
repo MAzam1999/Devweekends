@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import Image from "next/image";
-import { auth } from "@clerk/nextjs/server";
 import { BookOpen, CheckCircle, Lock } from "lucide-react";
 import { db } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth";
 import { formatPrice } from "@/lib/format";
 import { Banner } from "@/components/banner";
 import { EnrollButton } from "./_components/enroll-button";
@@ -16,13 +16,15 @@ export default async function CourseDetailPage({
   params,
   searchParams,
 }: {
-  params: { courseId: string };
-  searchParams: { success?: string; canceled?: string };
+  params: Promise<{ courseId: string }>;
+  searchParams: Promise<{ success?: string; canceled?: string }>;
 }) {
-  const { userId } = await auth();
+  const authUser = await getAuthUser();
+  const { courseId } = await params;
+  const { success, canceled } = await searchParams;
 
   const course = await db.course.findUnique({
-    where: { id: params.courseId, isPublished: true },
+    where: { id: courseId, isPublished: true },
     include: {
       category: true,
       instructor: { select: { name: true, imageUrl: true } },
@@ -47,16 +49,11 @@ export default async function CourseDetailPage({
   if (!course) notFound();
 
   let isPurchased = false;
-  let dbUserId: string | null = null;
-  if (userId) {
-    const user = await db.user.findUnique({ where: { clerkId: userId } });
-    if (user) {
-      dbUserId = user.id;
-      const purchase = await db.purchase.findUnique({
-        where: { userId_courseId: { userId: user.id, courseId: course.id } },
-      });
-      isPurchased = !!purchase;
-    }
+  if (authUser) {
+    const purchase = await db.purchase.findUnique({
+      where: { userId_courseId: { userId: authUser.id, courseId: course.id } },
+    });
+    isPurchased = !!purchase;
   }
 
   const lessonCount = course.chapters.reduce(
@@ -68,13 +65,13 @@ export default async function CourseDetailPage({
 
   return (
     <div className="mx-auto max-w-5xl p-6">
-      {searchParams.success && (
+      {success && (
         <Banner
           label="Payment successful! You now have full access."
           variant="success"
         />
       )}
-      {searchParams.canceled && (
+      {canceled && (
         <Banner label="Payment canceled. You can try again below." />
       )}
 
@@ -173,7 +170,7 @@ export default async function CourseDetailPage({
               <EnrollButton
                 courseId={course.id}
                 price={course.price}
-                isLoggedIn={!!userId}
+                isLoggedIn={!!authUser}
               />
             )}
           </div>

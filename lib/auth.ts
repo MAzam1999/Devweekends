@@ -5,14 +5,14 @@ import { Role } from "@prisma/client";
 export async function getAuthUser() {
   const { userId } = await auth();
   if (!userId) return null;
-  return db.user.findUnique({ where: { clerkId: userId } });
+  const existing = await db.user.findUnique({ where: { clerkId: userId } });
+  if (existing) return existing;
+  return syncUser();
 }
 
 export async function requireAuth() {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
-  const user = await db.user.findUnique({ where: { clerkId: userId } });
-  if (!user) throw new Error("User not found");
+  const user = await getAuthUser();
+  if (!user) throw new Error("Unauthorized");
   return user;
 }
 
@@ -26,13 +26,10 @@ export async function syncUser() {
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
-  const existing = await db.user.findUnique({
+  return db.user.upsert({
     where: { clerkId: clerkUser.id },
-  });
-  if (existing) return existing;
-
-  return db.user.create({
-    data: {
+    update: {},
+    create: {
       clerkId: clerkUser.id,
       email: clerkUser.emailAddresses[0]?.emailAddress ?? "",
       name: `${clerkUser.firstName ?? ""} ${clerkUser.lastName ?? ""}`.trim(),

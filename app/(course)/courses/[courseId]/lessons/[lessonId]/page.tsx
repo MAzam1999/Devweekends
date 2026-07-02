@@ -1,6 +1,6 @@
 import { notFound, redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
+import { getAuthUser } from "@/lib/auth";
 import { signMuxPlaybackToken } from "@/lib/mux-tokens";
 import { VideoPlayer } from "./_components/video-player";
 import { CourseSidebar } from "./_components/course-sidebar";
@@ -8,16 +8,14 @@ import { CourseSidebar } from "./_components/course-sidebar";
 export default async function LessonPlayerPage({
   params,
 }: {
-  params: { courseId: string; lessonId: string };
+  params: Promise<{ courseId: string; lessonId: string }>;
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
-  const user = await db.user.findUnique({ where: { clerkId: userId } });
+  const { lessonId } = await params;
+  const user = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const lesson = await db.lesson.findUnique({
-    where: { id: params.lessonId },
+    where: { id: lessonId },
     include: {
       chapter: {
         include: {

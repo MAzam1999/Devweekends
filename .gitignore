@@ -30,6 +30,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local screenshots that may contain secrets (e.g. dashboard connection strings)
+*.png
+*.jpg
+*.jpeg
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

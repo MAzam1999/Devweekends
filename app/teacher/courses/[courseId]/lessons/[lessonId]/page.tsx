@@ -10,11 +10,12 @@ import { Banner } from "@/components/banner";
 export default async function LessonEditPage({
   params,
 }: {
-  params: { courseId: string; lessonId: string };
+  params: Promise<{ courseId: string; lessonId: string }>;
 }) {
+  const { courseId, lessonId } = await params;
   const user = await requireAuth();
   const lesson = await db.lesson.findUnique({
-    where: { id: params.lessonId },
+    where: { id: lessonId },
     include: { chapter: { include: { course: true } } },
   });
   if (!lesson) notFound();
@@ -29,7 +30,7 @@ export default async function LessonEditPage({
     <div className="p-6">
       <div className="mb-4">
         <Link
-          href={`/teacher/courses/${params.courseId}`}
+          href={`/teacher/courses/${courseId}`}
           className="flex items-center text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -44,8 +45,8 @@ export default async function LessonEditPage({
       <h1 className="mb-6 text-2xl font-bold">{lesson.title}</h1>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <LessonEditForm lesson={lesson} courseId={params.courseId} />
-        <VideoUpload lesson={lesson} courseId={params.courseId} />
+        <LessonEditForm lesson={lesson} courseId={courseId} />
+        <VideoUpload lesson={lesson} courseId={courseId} />
       </div>
     </div>
   );

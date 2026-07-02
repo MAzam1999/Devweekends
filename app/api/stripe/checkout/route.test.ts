@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const { authMock } = vi.hoisted(() => ({ authMock: vi.fn() }));
-vi.mock("@clerk/nextjs/server", () => ({ auth: authMock }));
+const { getAuthUserMock } = vi.hoisted(() => ({ getAuthUserMock: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ getAuthUser: getAuthUserMock }));
 
 const { dbMock } = vi.hoisted(() => ({
   dbMock: {
-    user: { findUnique: vi.fn() },
     course: { findUnique: vi.fn() },
     purchase: { findUnique: vi.fn() },
     stripeCustomer: { findUnique: vi.fn(), create: vi.fn() },
@@ -47,7 +46,7 @@ beforeEach(() => {
 
 describe("POST /api/stripe/checkout", () => {
   it("rejects unauthenticated requests", async () => {
-    authMock.mockResolvedValue({ userId: null });
+    getAuthUserMock.mockResolvedValue(null);
 
     const res = await POST(makeRequest({ courseId: course.id }));
 
@@ -56,7 +55,7 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("rejects an invalid body", async () => {
-    authMock.mockResolvedValue({ userId: "clerk_1" });
+    getAuthUserMock.mockResolvedValue(user);
 
     const res = await POST(makeRequest({}));
 
@@ -64,8 +63,7 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("rejects when the course is not found or unpublished", async () => {
-    authMock.mockResolvedValue({ userId: "clerk_1" });
-    dbMock.user.findUnique.mockResolvedValue(user);
+    getAuthUserMock.mockResolvedValue(user);
     dbMock.course.findUnique.mockResolvedValue(null);
 
     const res = await POST(makeRequest({ courseId: course.id }));
@@ -74,8 +72,7 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("rejects when the course was already purchased", async () => {
-    authMock.mockResolvedValue({ userId: "clerk_1" });
-    dbMock.user.findUnique.mockResolvedValue(user);
+    getAuthUserMock.mockResolvedValue(user);
     dbMock.course.findUnique.mockResolvedValue(course);
     dbMock.purchase.findUnique.mockResolvedValue({ id: "purchase_1" });
 
@@ -86,8 +83,7 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("creates a Stripe customer on first purchase and returns a checkout url", async () => {
-    authMock.mockResolvedValue({ userId: "clerk_1" });
-    dbMock.user.findUnique.mockResolvedValue(user);
+    getAuthUserMock.mockResolvedValue(user);
     dbMock.course.findUnique.mockResolvedValue(course);
     dbMock.purchase.findUnique.mockResolvedValue(null);
     dbMock.stripeCustomer.findUnique.mockResolvedValue(null);
@@ -115,8 +111,7 @@ describe("POST /api/stripe/checkout", () => {
   });
 
   it("reuses an existing Stripe customer instead of creating a new one", async () => {
-    authMock.mockResolvedValue({ userId: "clerk_1" });
-    dbMock.user.findUnique.mockResolvedValue(user);
+    getAuthUserMock.mockResolvedValue(user);
     dbMock.course.findUnique.mockResolvedValue(course);
     dbMock.purchase.findUnique.mockResolvedValue(null);
     dbMock.stripeCustomer.findUnique.mockResolvedValue({
