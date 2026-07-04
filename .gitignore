@@ -26,6 +26,11 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+*.env
+
+# internal docs
+CLAUDE.md
+PRD.md
 
 # vercel
 .vercel
@@ -43,3 +48,5 @@ next-env.d.ts
 prisma/generated
 
 /lib/generated/prisma
+
+.vercel
