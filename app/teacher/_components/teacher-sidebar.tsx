@@ -2,15 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, LayoutDashboard, PlusCircle } from "lucide-react";
+import { BookOpen, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const routes = [
-  {
-    icon: LayoutDashboard,
-    label: "Dashboard",
-    href: "/teacher/courses",
-  },
   {
     icon: BookOpen,
     label: "Courses",
