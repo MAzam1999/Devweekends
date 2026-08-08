@@ -3,7 +3,7 @@
 A full-stack Learning Management System built with Next.js 16, Prisma, Clerk, Stripe, and Mux.
 
 **Live demo:** _deploy to Vercel and add URL here_  
-**GitHub:** _add repo URL here_
+**GitHub:** https://github.com/MAzam1999/Devweekends
 
 ---
 
@@ -257,7 +257,7 @@ docker run -d --name lms-platform --restart unless-stopped \
   <ecr-registry>/lms-platform:<previous-sha>
 ```
 
-**Live EC2 demo:** _deploy and add URL here_
+**Live EC2 demo:** http://13.51.5.126
 
 ---
 
