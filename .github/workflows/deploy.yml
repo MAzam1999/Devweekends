@@ -89,4 +89,5 @@ jobs:
 
       - name: Smoke check
         run: |
-          curl -f "http://${{ secrets.EC2_HOST }}/" || (echo "Smoke check failed" && exit 1)
+          curl -f --retry 8 --retry-delay 3 --retry-all-errors "http://${{ secrets.EC2_HOST }}/" \
+            || (echo "Smoke check failed" && exit 1)
