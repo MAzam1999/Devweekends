@@ -31,6 +31,7 @@ yarn-error.log*
 # internal docs
 CLAUDE.md
 PRD.md
+PRD_2.md
 
 # vercel
 .vercel
@@ -39,6 +40,8 @@ PRD.md
 *.png
 *.jpg
 *.jpeg
+# exception: scrubbed CI/CD pipeline screenshot for the README (PRD_2 D2)
+!docs/pipeline.png
 
 # typescript
 *.tsbuildinfo

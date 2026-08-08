@@ -1,0 +1,16 @@
+services:
+  app:
+    build:
+      context: .
+      args:
+        DATABASE_URL: ${DATABASE_URL}
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_CLERK_SIGN_IN_URL: ${NEXT_PUBLIC_CLERK_SIGN_IN_URL}
+        NEXT_PUBLIC_CLERK_SIGN_UP_URL: ${NEXT_PUBLIC_CLERK_SIGN_UP_URL}
+    image: lms-platform:local
+    env_file:
+      - .env.local
+    ports:
+      - "3000:3000"
+    restart: unless-stopped

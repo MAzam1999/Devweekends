@@ -1,0 +1,47 @@
+# dependencies
+node_modules
+npm-debug.log*
+
+# next.js build output
+.next
+out
+
+# env files (never bake secrets into the image)
+.env
+.env*.local
+.env.production
+.env.development
+
+# git
+.git
+.gitignore
+
+# vercel
+.vercel
+vercel.json
+.vercelignore
+
+# editor / os
+.vscode
+.DS_Store
+Thumbs.db
+
+# docs (not needed at runtime, some may reference internal info)
+README.md
+CLAUDE.md
+PRD.md
+PRD_2.md
+*.md
+
+# typescript build cache
+*.tsbuildinfo
+next-env.d.ts
+
+# tests
+vitest.config.ts
+**/*.test.ts
+**/*.test.tsx
+
+# misc
+coverage
+docs

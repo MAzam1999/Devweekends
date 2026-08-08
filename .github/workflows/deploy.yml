@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Quality gate — typecheck
+        run: npx tsc --noEmit
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          docker build \
+            --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}" \
+            --build-arg NEXT_PUBLIC_APP_URL="${{ secrets.NEXT_PUBLIC_APP_URL }}" \
+            --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_URL="${{ secrets.NEXT_PUBLIC_CLERK_SIGN_IN_URL }}" \
+            --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_URL="${{ secrets.NEXT_PUBLIC_CLERK_SIGN_UP_URL }}" \
+            -t "$REGISTRY/$ECR_REPOSITORY:latest" \
+            -t "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}" \
+            .
+
+      - name: Push image
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+        run: |
+          docker push "$REGISTRY/$ECR_REPOSITORY:latest"
+          docker push "$REGISTRY/$ECR_REPOSITORY:${{ github.sha }}"
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v1
+        env:
+          REGISTRY: ${{ steps.ecr-login.outputs.registry }}
+          IMAGE: ${{ steps.ecr-login.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          envs: REGISTRY,IMAGE
+          script: |
+            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin "$REGISTRY"
+            docker pull "$IMAGE"
+            docker stop lms-platform || true
+            docker rm lms-platform || true
+            docker run -d \
+              --name lms-platform \
+              --restart unless-stopped \
+              --env-file /opt/lms/.env \
+              -p 3000:3000 \
+              "$IMAGE"
+            docker image prune -f
+
+      - name: Smoke check
+        run: |
+          curl -f "http://${{ secrets.EC2_HOST }}/" || (echo "Smoke check failed" && exit 1)

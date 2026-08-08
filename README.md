@@ -132,6 +132,135 @@ After deploying:
 
 ---
 
+## Docker & Deployment (AWS EC2)
+
+This repo also ships as a self-hosted Docker deployment on AWS, running
+**in parallel** with the Vercel deployment above — same codebase, same
+external services (Neon / Clerk / Stripe / Mux / Blob), two independent URLs.
+
+> **Note on "MERN":** this project is React + Node.js + **PostgreSQL**
+> (Next.js 16 / Prisma / Neon), not MongoDB. The containerization, CI/CD,
+> and cloud-deployment work is stack-independent — swapping Postgres for
+> Mongo would change a connection string, not any of the DevOps steps
+> demonstrated here.
+
+### Architecture
+
+```
+git push to main
+      │
+      ▼
+GitHub Actions runner
+  ├─ checkout
+  ├─ docker build  (NEXT_PUBLIC_* injected as build args)
+  ├─ push image → Amazon ECR
+  └─ SSH to EC2 ─────────────┐
+                             ▼
+                    EC2 (t3.micro, Amazon Linux 2023)
+                      ├─ nginx  :80  ──reverse proxy──┐
+                      └─ docker run :3000 ◄───────────┘
+                          (--env-file /opt/lms/.env)
+                                    ↕
+                    Neon · Clerk · Stripe · Mux · Blob
+```
+
+The external services are unchanged and shared between the Vercel and EC2
+deployments. The container is stateless — no volumes, no local database,
+no uploaded files on disk.
+
+### Local build & run
+
+```bash
+# Build (build args come from .env.local; see docker-compose.yml)
+docker compose build
+
+# Run
+docker compose up
+```
+
+Or directly with `docker build`/`docker run`:
+
+```bash
+docker build \
+  --build-arg DATABASE_URL="$DATABASE_URL" \
+  --build-arg NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="$NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY" \
+  --build-arg NEXT_PUBLIC_APP_URL="$NEXT_PUBLIC_APP_URL" \
+  --build-arg NEXT_PUBLIC_CLERK_SIGN_IN_URL="$NEXT_PUBLIC_CLERK_SIGN_IN_URL" \
+  --build-arg NEXT_PUBLIC_CLERK_SIGN_UP_URL="$NEXT_PUBLIC_CLERK_SIGN_UP_URL" \
+  -t lms-platform:local .
+
+docker run -p 3000:3000 --env-file .env.local lms-platform:local
+```
+
+`NEXT_PUBLIC_*` values are compiled into the client bundle at **build time**
+— passing them to `docker run` instead has no effect. See the build-arg vs
+runtime-env table below.
+
+### Build-time vs runtime configuration
+
+| Variable | Needed at | Mechanism |
+|---|---|---|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Build | `--build-arg` |
+| `NEXT_PUBLIC_APP_URL` | Build | `--build-arg` (EC2 URL, not Vercel's) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `_SIGN_UP_URL` | Build | `--build-arg` |
+| `DATABASE_URL` | Build *and* runtime | build arg + `--env-file` |
+| `DIRECT_URL`, `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `MUX_*`, `BLOB_READ_WRITE_TOKEN` | Runtime only | `--env-file` |
+
+### Required GitHub Actions secrets
+
+Set these in **Settings → Secrets and variables → Actions** on the repo:
+
+| Secret | Purpose |
+|---|---|
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | IAM deploy user (ECR push + nothing else) |
+| `AWS_REGION` | e.g. `us-east-1` |
+| `ECR_REPOSITORY` | ECR repo name, e.g. `lms-platform` |
+| `EC2_HOST` | Elastic IP / public DNS of the EC2 instance |
+| `EC2_USER` | SSH user (`ec2-user` on Amazon Linux) |
+| `EC2_SSH_KEY` | Full private key (PEM), including header/footer lines |
+| `DATABASE_URL` | Neon pooled connection string (build arg, per R1) |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| `NEXT_PUBLIC_APP_URL` | Public EC2 URL (differs from the Vercel value) |
+| `NEXT_PUBLIC_CLERK_SIGN_IN_URL` / `NEXT_PUBLIC_CLERK_SIGN_UP_URL` | Clerk routes |
+
+Runtime-only secrets (`CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `MUX_*`, etc.)
+are **not** GitHub secrets — they live only in `/opt/lms/.env` on the EC2
+host (see below), loaded via `docker run --env-file`.
+
+### EC2 bootstrap (one-time, manual)
+
+1. Launch a `t3.micro` (Amazon Linux 2023), attach an Elastic IP.
+2. Security group: `22` (SSH, your IP only), `80` and `443` (all). Port
+   `3000` stays private — nginx fronts it.
+3. Install Docker, enable on boot, install nginx, reverse-proxy `:80 → 127.0.0.1:3000`.
+4. Create `/opt/lms/.env` (`chmod 600`) with the runtime-only secrets above.
+5. Create the ECR repo (`lms-platform`) and an IAM user scoped to ECR push only.
+6. Point Stripe's and Mux's webhook endpoints at the EC2 URL (separate
+   signing secrets from the Vercel deployment), and add the EC2 origin in
+   Clerk's dashboard.
+
+### CI/CD pipeline
+
+`.github/workflows/deploy.yml` runs on every push to `main` (and manually via
+`workflow_dispatch`): typecheck → build → push to ECR (tagged `:latest` and
+`:<sha>`) → SSH into EC2 → pull, restart the container, prune old images →
+smoke-check the public URL.
+
+### Rollback
+
+Every image is also tagged with its commit SHA. To roll back, SSH into the
+host and run the previous SHA's image:
+
+```bash
+docker run -d --name lms-platform --restart unless-stopped \
+  --env-file /opt/lms/.env -p 3000:3000 \
+  <ecr-registry>/lms-platform:<previous-sha>
+```
+
+**Live EC2 demo:** _deploy and add URL here_
+
+---
+
 ## Project structure
 
 ```
