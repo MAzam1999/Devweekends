@@ -246,6 +246,8 @@ host (see below), loaded via `docker run --env-file`.
 `:<sha>`) → SSH into EC2 → pull, restart the container, prune old images →
 smoke-check the public URL.
 
+![CI/CD pipeline — green run on main](docs/pipeline.png)
+
 ### Rollback
 
 Every image is also tagged with its commit SHA. To roll back, SSH into the
